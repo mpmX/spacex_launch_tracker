@@ -1,3 +1,4 @@
+import os
 from typing import Optional, List
 import streamlit as st
 from pymongo import MongoClient
@@ -12,11 +13,12 @@ from stats import (
     calculate_time_bucket_counts,
 )
 
-
-MONGO_URL = "mongodb://spacex:spacex@mongo:27017/"
-DB_NAME = "spacex_data"
-COLLECTION_NAME = "launches"
-WEBHOOK_COLLECTION_NAME = "webhooks"
+MONGODB_USERNAME = os.environ["MONGODB_USERNAME"]
+MONGODB_PASSWORD = os.environ["MONGODB_PASSWORD"]
+MONGODB_DB_NAME = os.environ["MONGODB_DB_NAME"]
+MONGODB_LAUNCHES_COLLECTION = os.environ["MONGODB_LAUNCHES_COLLECTION"]
+MONGODB_WEBHOOKS_COLLECTION = os.environ["MONGODB_WEBHOOKS_COLLECTION"]
+MONGO_URL = f"mongodb://{MONGODB_USERNAME}:{MONGODB_PASSWORD}@mongo:27017/"
 
 
 @st.cache_resource
@@ -69,8 +71,7 @@ def load_initial_filter_values(
             (date.today(), date.today()),
         )  # rocket_names, launch_sites, (min_date, max_date)
 
-    db = client[DB_NAME]
-    collection = db[COLLECTION_NAME]
+    collection = client[MONGODB_DB_NAME][MONGODB_LAUNCHES_COLLECTION]
 
     default_min_date = date.today()
     default_max_date = date.today()
@@ -220,7 +221,7 @@ def fetch_filtered_launches(client: MongoClient, query: dict) -> pd.DataFrame:
     if client is None:
         return pd.DataFrame()
 
-    collection = client[DB_NAME][COLLECTION_NAME]
+    collection = client[MONGODB_DB_NAME][MONGODB_LAUNCHES_COLLECTION]
     try:
         results = list(collection.find(query))
         if not results:
@@ -326,7 +327,7 @@ def webhooks_dialog(client: MongoClient):
         client (MongoClient): An active MongoClient instance to interact with the
                               webhooks collection.
     """
-    webhook_collection = client[DB_NAME][WEBHOOK_COLLECTION_NAME]
+    webhook_collection = client[MONGODB_DB_NAME][MONGODB_LAUNCHES_COLLECTION]
     webhook = webhook_collection.find_one({"_id": 1})
     st.write(
         "Configure a webhook url to get notified when new launches occur! The endpoint must accept a POST request with a 'message' key in the payload."
@@ -500,14 +501,16 @@ def main():
         return
 
     try:
-        collection = client[DB_NAME][COLLECTION_NAME]
+        collection = client[MONGODB_DB_NAME][MONGODB_LAUNCHES_COLLECTION]
         if collection.count_documents({}) == 0:
             st.info(
-                f"The '{COLLECTION_NAME}' collection in database '{DB_NAME}' appears to be empty. Reload the page when data is synced."
+                f"The '{MONGODB_LAUNCHES_COLLECTION}' collection in database '{MONGODB_DB_NAME}' appears to be empty. Reload the page when data is synced."
             )
             return
     except Exception as e:
-        st.error(f"Error checking if collection '{COLLECTION_NAME}' is empty: {e}")
+        st.error(
+            f"Error checking if collection '{MONGODB_LAUNCHES_COLLECTION}' is empty: {e}"
+        )
 
     (
         start_date_val,
