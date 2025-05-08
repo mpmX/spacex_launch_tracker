@@ -1,0 +1,6 @@
+prefect==3.3.3
+httpx
+pymongo
+pandas
+streamlit
+plotly
